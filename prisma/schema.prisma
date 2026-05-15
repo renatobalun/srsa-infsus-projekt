@@ -1,0 +1,157 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UlogaKorisnika {
+  KLIJENT
+  SERVISER
+  ADMIN
+}
+
+enum TerminStatus {
+  SLOBODAN
+  REZERVIRAN
+  NEDOSTUPAN
+}
+
+enum RezervacijaStatus {
+  KREIRANA
+  POTVRDENA
+  U_TIJEKU
+  PROVEDENA
+  OTKAZANA
+  ODGODENA
+}
+
+model Korisnik {
+  id        Int            @id @default(autoincrement()) @map("korisnik_id")
+  ime       String         @db.VarChar(50)
+  prezime   String         @db.VarChar(50)
+  email     String         @unique @db.VarChar(100)
+  telefon   String?        @db.VarChar(30)
+  lozinka   String         @db.VarChar(255)
+  uloga     UlogaKorisnika @default(KLIJENT)
+
+  klijent    Klijent?
+  zaposlenik Zaposlenik?
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("korisnik")
+}
+
+model Klijent {
+  korisnikId        Int      @id @map("korisnik_id")
+  datumRegistracije DateTime @default(now()) @map("datum_registracije")
+
+  korisnik Korisnik @relation(fields: [korisnikId], references: [id], onDelete: Cascade)
+  vozila   Vozilo[]
+
+  @@map("klijent")
+}
+
+model Zaposlenik {
+  korisnikId Int     @id @map("korisnik_id")
+  strucnost  String? @db.VarChar(100)
+
+  korisnik    Korisnik      @relation(fields: [korisnikId], references: [id], onDelete: Cascade)
+  rezervacije Rezervacija[]
+
+  @@map("zaposlenik")
+}
+
+model Poslovnica {
+  id     Int    @id @default(autoincrement()) @map("poslovnica_id")
+  naziv  String @db.VarChar(100)
+  adresa String @db.VarChar(150)
+  grad   String @db.VarChar(100)
+
+  termini Termin[]
+
+  @@map("poslovnica")
+}
+
+model Vozilo {
+  id                   Int    @id @default(autoincrement()) @map("vozilo_id")
+  registracijskaOznaka String @unique @map("registracijska_oznaka") @db.VarChar(20)
+  brojSasije           String @unique @map("broj_sasije") @db.VarChar(50)
+  marka                String @db.VarChar(50)
+  model                String @db.VarChar(50)
+  godinaProizvodnje    Int    @map("godina_proizvodnje")
+  klijentId            Int    @map("klijent_id")
+
+  klijent     Klijent       @relation(fields: [klijentId], references: [korisnikId], onDelete: Cascade)
+  rezervacije Rezervacija[]
+
+  @@map("vozilo")
+}
+
+model Termin {
+  id            Int          @id @default(autoincrement()) @map("termin_id")
+  poslovnicaId Int          @map("poslovnica_id")
+  pocetak       DateTime
+  kraj          DateTime
+  status        TerminStatus @default(SLOBODAN)
+
+  poslovnica  Poslovnica   @relation(fields: [poslovnicaId], references: [id], onDelete: Cascade)
+  rezervacija Rezervacija?
+
+  @@index([poslovnicaId, pocetak])
+  @@map("termin")
+}
+
+model ServisnaUsluga {
+  id          Int     @id @default(autoincrement()) @map("usluga_id")
+  naziv       String  @db.VarChar(100)
+  trajanjeMin Int     @map("trajanje_min")
+  cijena      Decimal @db.Decimal(10, 2)
+  aktivna     Boolean @default(true)
+
+  rezervacijaUsluge RezervacijaUsluga[]
+
+  @@map("servisna_usluga")
+}
+
+model Rezervacija {
+  id               Int               @id @default(autoincrement()) @map("rezervacija_id")
+  voziloId         Int               @map("vozilo_id")
+  terminId         Int               @unique @map("termin_id")
+  zaposlenikId     Int?              @map("zaposlenik_id")
+  datumRezervacije DateTime          @default(now()) @map("datum_rezervacije")
+  status           RezervacijaStatus @default(KREIRANA)
+  opisProblema     String?           @map("opis_problema") @db.VarChar(255)
+
+  vozilo     Vozilo      @relation(fields: [voziloId], references: [id], onDelete: Cascade)
+  termin     Termin      @relation(fields: [terminId], references: [id], onDelete: Restrict)
+  zaposlenik Zaposlenik? @relation(fields: [zaposlenikId], references: [korisnikId], onDelete: SetNull)
+
+  usluge RezervacijaUsluga[]
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("rezervacija")
+}
+
+model RezervacijaUsluga {
+  rezervacijaId Int @map("rezervacija_id")
+  uslugaId      Int @map("usluga_id")
+  kolicina      Int @default(1)
+
+  rezervacija Rezervacija    @relation(fields: [rezervacijaId], references: [id], onDelete: Cascade)
+  usluga      ServisnaUsluga @relation(fields: [uslugaId], references: [id], onDelete: Restrict)
+
+  @@id([rezervacijaId, uslugaId])
+  @@map("rezervacija_usluga")
+}
