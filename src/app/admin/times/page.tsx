@@ -114,10 +114,10 @@ export default async function AdminTermsPage() {
                   <td className="p-2">{statusLabel(term.status)}</td>
 
                   <td className="p-2">
-                    {term.rezervacija ? (
+                    {term.rezervacije.length > 0 ? (
                       <span>
-                        Rezervacija #{term.rezervacija.id} —{" "}
-                        {term.rezervacija.vozilo.registracijskaOznaka}
+                        Rezervacija #{term.rezervacije[0].id} —{" "}
+                        {term.rezervacije[0].vozilo.registracijskaOznaka}
                       </span>
                     ) : (
                       <span className="text-gray-500">Nema rezervacije</span>
