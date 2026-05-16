@@ -27,7 +27,7 @@ export async function findTermById(id: number) {
     where: { id },
     include: {
       poslovnica: true,
-      rezervacija: true,
+      rezervacije: true,
     },
   });
 }
