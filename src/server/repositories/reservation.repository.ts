@@ -422,3 +422,208 @@ export async function createPublicReservation(input: {
     return reservation;
   });
 }
+
+export async function cancelReservation(id: number) {
+  return prisma.$transaction(async (tx) => {
+    const reservation = await tx.rezervacija.update({
+      where: {
+        id,
+      },
+      data: {
+        status: RezervacijaStatus.OTKAZANA,
+      },
+    });
+
+    await tx.termin.update({
+      where: {
+        id: reservation.terminId,
+      },
+      data: {
+        status: TerminStatus.SLOBODAN,
+      },
+    });
+
+    return reservation;
+  });
+}
+
+export async function findReservationsByClientId(clientId: number) {
+  return prisma.rezervacija.findMany({
+    where: {
+      vozilo: {
+        klijentId: clientId,
+      },
+    },
+    include: {
+      vozilo: true,
+      termin: {
+        include: {
+          poslovnica: true,
+        },
+      },
+      zaposlenik: {
+        include: {
+          korisnik: true,
+        },
+      },
+      usluge: {
+        include: {
+          usluga: true,
+        },
+      },
+    },
+    orderBy: {
+      termin: {
+        pocetak: "desc",
+      },
+    },
+  });
+}
+
+export async function hasActiveReservationForTerm(terminId: number) {
+  const count = await prisma.rezervacija.count({
+    where: {
+      terminId,
+      status: {
+        not: RezervacijaStatus.OTKAZANA,
+      },
+    },
+  });
+
+  return count > 0;
+}
+
+export async function createReservationForLoggedClient(input: {
+  korisnikId: number;
+  voziloId?: number | null;
+
+  registracijskaOznaka?: string;
+  brojSasije?: string;
+  marka?: string;
+  model?: string;
+  godinaProizvodnje?: number;
+
+  terminId: number;
+  opisProblema?: string;
+
+  usluge: {
+    uslugaId: number;
+    kolicina: number;
+  }[];
+}) {
+  return prisma.$transaction(async (tx) => {
+    const korisnik = await tx.korisnik.findUnique({
+      where: {
+        id: input.korisnikId,
+      },
+      include: {
+        klijent: true,
+      },
+    });
+
+    if (!korisnik) {
+      throw new Error("Korisnik ne postoji.");
+    }
+
+    if (!korisnik.klijent) {
+      await tx.klijent.create({
+        data: {
+          korisnikId: korisnik.id,
+        },
+      });
+    }
+
+    let vozilo;
+
+    if (input.voziloId) {
+      vozilo = await tx.vozilo.findUnique({
+        where: {
+          id: input.voziloId,
+        },
+      });
+
+      if (!vozilo) {
+        throw new Error("Odabrano vozilo ne postoji.");
+      }
+
+      if (vozilo.klijentId !== korisnik.id) {
+        throw new Error("Odabrano vozilo ne pripada prijavljenom korisniku.");
+      }
+    } else {
+      const registracijskaOznaka = String(input.registracijskaOznaka ?? "")
+        .trim()
+        .toUpperCase();
+
+      const brojSasije = String(input.brojSasije ?? "").trim().toUpperCase();
+
+      vozilo = await tx.vozilo.findFirst({
+        where: {
+          OR: [
+            {
+              registracijskaOznaka,
+            },
+            {
+              brojSasije,
+            },
+          ],
+        },
+      });
+
+      if (!vozilo) {
+        vozilo = await tx.vozilo.create({
+          data: {
+            registracijskaOznaka,
+            brojSasije,
+            marka: String(input.marka ?? "").trim(),
+            model: String(input.model ?? "").trim(),
+            godinaProizvodnje: Number(input.godinaProizvodnje),
+            klijentId: korisnik.id,
+          },
+        });
+      }
+
+      if (vozilo.klijentId !== korisnik.id) {
+        throw new Error(
+          "Vozilo s tom registracijom ili brojem šasije već pripada drugom korisniku."
+        );
+      }
+    }
+
+    const reservation = await tx.rezervacija.create({
+      data: {
+        voziloId: vozilo.id,
+        terminId: input.terminId,
+        opisProblema: input.opisProblema?.trim(),
+        status: "KREIRANA",
+        usluge: {
+          create: input.usluge.map((item) => ({
+            uslugaId: item.uslugaId,
+            kolicina: item.kolicina,
+          })),
+        },
+      },
+    });
+
+    await tx.termin.update({
+      where: {
+        id: input.terminId,
+      },
+      data: {
+        status: "REZERVIRAN",
+      },
+    });
+
+    return reservation;
+  });
+}
+
+export async function findVehiclesByClientId(clientId: number) {
+  return prisma.vozilo.findMany({
+    where: {
+      klijentId: clientId,
+    },
+    orderBy: {
+      registracijskaOznaka: "asc",
+    },
+  });
+}

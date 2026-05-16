@@ -19,10 +19,13 @@ export default async function ReservationsPage({ searchParams }: Props) {
         <h1 className="text-3xl font-bold">Rezervacije</h1>
 
         <Link
-          href="/reservations/new"
+          href="/admin/reservations/new"
           className="rounded bg-black px-4 py-2 text-white"
         >
           Nova rezervacija
+        </Link>
+        <Link href="/admin/times" className="rounded border px-4 py-2">
+          Upravljaj terminima
         </Link>
       </div>
 
@@ -89,7 +92,7 @@ export default async function ReservationsPage({ searchParams }: Props) {
 
                 <td className="p-2">
                   <Link
-                    href={`/reservations/${reservation.id}`}
+                    href={`/admin/reservations/${reservation.id}`}
                     className="rounded bg-gray-900 px-3 py-1 text-white"
                   >
                     Otvori

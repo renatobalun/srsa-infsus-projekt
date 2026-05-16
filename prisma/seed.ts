@@ -1,6 +1,9 @@
-import { PrismaClient, UlogaKorisnika, TerminStatus } from "../generated/prisma/client";
+import {
+  PrismaClient,
+  UlogaKorisnika,
+  TerminStatus,
+} from "../generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-
 
 const adapter = new PrismaPg({
   connectionString: process.env.DATABASE_URL!,
@@ -44,6 +47,17 @@ async function main() {
           strucnost: "Mehanika i dijagnostika",
         },
       },
+    },
+  });
+
+  await prisma.korisnik.create({
+    data: {
+      ime: "Ana",
+      prezime: "Admin",
+      email: "admin@example.com",
+      telefon: "0910000000",
+      lozinka: "admin123",
+      uloga: UlogaKorisnika.ADMIN,
     },
   });
 

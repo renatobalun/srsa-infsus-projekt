@@ -20,7 +20,7 @@ export async function createServiceTypeAction(formData: FormData) {
     aktivna,
   });
 
-  revalidatePath("/service-types");
+  revalidatePath("/admin/service-types");
 }
 
 export async function updateServiceTypeAction(id: number, formData: FormData) {
@@ -36,11 +36,11 @@ export async function updateServiceTypeAction(id: number, formData: FormData) {
     aktivna,
   });
 
-  revalidatePath("/service-types");
+  revalidatePath("/admin/service-types");
 }
 
 export async function deleteServiceTypeAction(id: number) {
   await deleteServiceTypeUseCase(id);
 
-  revalidatePath("/service-types");
+  revalidatePath("/admin/service-types");
 }

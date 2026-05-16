@@ -10,7 +10,7 @@ export default async function NewReservationPage() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-3xl font-bold">Nova rezervacija</h1>
 
-        <Link href="/reservations" className="underline">
+        <Link href="/admin/reservations" className="underline">
           Natrag na rezervacije
         </Link>
       </div>

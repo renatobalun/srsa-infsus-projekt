@@ -104,8 +104,8 @@ model Termin {
   kraj          DateTime
   status        TerminStatus @default(SLOBODAN)
 
-  poslovnica  Poslovnica   @relation(fields: [poslovnicaId], references: [id], onDelete: Cascade)
-  rezervacija Rezervacija?
+  poslovnica  Poslovnica    @relation(fields: [poslovnicaId], references: [id], onDelete: Cascade)
+  rezervacije Rezervacija[]
 
   @@index([poslovnicaId, pocetak])
   @@map("termin")
@@ -126,7 +126,7 @@ model ServisnaUsluga {
 model Rezervacija {
   id               Int               @id @default(autoincrement()) @map("rezervacija_id")
   voziloId         Int               @map("vozilo_id")
-  terminId         Int               @unique @map("termin_id")
+  terminId         Int               @map("termin_id")
   zaposlenikId     Int?              @map("zaposlenik_id")
   datumRezervacije DateTime          @default(now()) @map("datum_rezervacije")
   status           RezervacijaStatus @default(KREIRANA)

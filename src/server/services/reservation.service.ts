@@ -15,7 +15,12 @@ import {
   removeServiceFromReservation,
   updateReservation,
   updateReservationServiceQuantity,
-  createPublicReservation
+  createPublicReservation,
+  cancelReservation,
+  findReservationsByClientId,
+  hasActiveReservationForTerm,
+  createReservationForLoggedClient,
+  findVehiclesByClientId,
 } from "@/server/repositories/reservation.repository";
 
 export type CreateReservationInput = {
@@ -50,10 +55,16 @@ export type PublicReservationInput = {
   }[];
 };
 
-
-
 export async function getReservations(search?: string) {
   return findReservations(search);
+}
+
+export async function getReservationsForClient(clientId: number) {
+  return findReservationsByClientId(clientId);
+}
+
+export async function getVehiclesForClient(clientId: number) {
+  return findVehiclesByClientId(clientId);
 }
 
 export async function getReservationById(id: number) {
@@ -66,7 +77,40 @@ export async function getReservationById(id: number) {
   return reservation;
 }
 
+export type LoggedClientReservationInput = {
+  korisnikId: number;
+  voziloId?: number | null;
 
+  registracijskaOznaka?: string;
+  brojSasije?: string;
+  marka?: string;
+  model?: string;
+  godinaProizvodnje?: number;
+
+  terminId: number;
+  opisProblema?: string;
+
+  usluge: {
+    uslugaId: number;
+    kolicina: number;
+  }[];
+};
+
+export async function cancelReservationUseCase(id: number) {
+  const reservation = await getReservationById(id);
+
+  if (reservation.status === RezervacijaStatus.OTKAZANA) {
+    throw new Error("Rezervacija je već otkazana.");
+  }
+
+  if (!canCancelReservation(reservation.termin.pocetak)) {
+    throw new Error(
+      "Rezervaciju nije moguće otkazati manje od 24 sata prije termina.",
+    );
+  }
+
+  return cancelReservation(id);
+}
 
 export async function getReservationFormData() {
   const [vozila, termini, zaposlenici, usluge] = await Promise.all([
@@ -92,7 +136,7 @@ export async function createReservationUseCase(input: CreateReservationInput) {
 
 export async function updateReservationStatusUseCase(
   id: number,
-  status: RezervacijaStatus
+  status: RezervacijaStatus,
 ) {
   await getReservationById(id);
 
@@ -107,7 +151,7 @@ export async function updateReservationHeaderUseCase(
     zaposlenikId?: number | null;
     opisProblema?: string;
     status: RezervacijaStatus;
-  }
+  },
 ) {
   await getReservationById(id);
 
@@ -122,7 +166,9 @@ export async function deleteReservationUseCase(id: number) {
   const reservation = await getReservationById(id);
 
   if (!canCancelReservation(reservation.termin.pocetak)) {
-    throw new Error("Rezervaciju nije moguće obrisati manje od 24 sata prije termina.");
+    throw new Error(
+      "Rezervaciju nije moguće obrisati manje od 24 sata prije termina.",
+    );
   }
 
   return deleteReservation(id);
@@ -131,7 +177,7 @@ export async function deleteReservationUseCase(id: number) {
 export async function addServiceToReservationUseCase(
   reservationId: number,
   serviceId: number,
-  quantity: number
+  quantity: number,
 ) {
   const reservation = await getReservationById(reservationId);
   const service = await findServiceById(serviceId);
@@ -161,7 +207,7 @@ export async function addServiceToReservationUseCase(
   validateTotalServiceDuration(
     reservation.termin.pocetak,
     reservation.termin.kraj,
-    currentServices
+    currentServices,
   );
 
   return addServiceToReservation(reservationId, serviceId, quantity);
@@ -170,7 +216,7 @@ export async function addServiceToReservationUseCase(
 export async function updateReservationServiceQuantityUseCase(
   reservationId: number,
   serviceId: number,
-  quantity: number
+  quantity: number,
 ) {
   const reservation = await getReservationById(reservationId);
 
@@ -187,7 +233,7 @@ export async function updateReservationServiceQuantityUseCase(
   validateTotalServiceDuration(
     reservation.termin.pocetak,
     reservation.termin.kraj,
-    currentServices
+    currentServices,
   );
 
   return updateReservationServiceQuantity(reservationId, serviceId, quantity);
@@ -195,7 +241,7 @@ export async function updateReservationServiceQuantityUseCase(
 
 export async function removeServiceFromReservationUseCase(
   reservationId: number,
-  serviceId: number
+  serviceId: number,
 ) {
   const reservation = await getReservationById(reservationId);
 
@@ -233,6 +279,12 @@ async function validateReservationInput(input: CreateReservationInput) {
 
   if (term.status !== TerminStatus.SLOBODAN) {
     throw new Error("Odabrani termin nije slobodan.");
+  }
+
+  const termAlreadyReserved = await hasActiveReservationForTerm(input.terminId);
+
+  if (termAlreadyReserved) {
+    throw new Error("Odabrani termin već ima aktivnu rezervaciju.");
   }
 
   const services = [];
@@ -274,9 +326,10 @@ export function validateTotalServiceDuration(
   services: {
     durationMin: number;
     quantity: number;
-  }[]
+  }[],
 ) {
-  const termDurationMin = (termEnd.getTime() - termStart.getTime()) / (1000 * 60);
+  const termDurationMin =
+    (termEnd.getTime() - termStart.getTime()) / (1000 * 60);
 
   const totalServiceDuration = services.reduce((sum, service) => {
     return sum + service.durationMin * service.quantity;
@@ -284,11 +337,9 @@ export function validateTotalServiceDuration(
 
   if (totalServiceDuration > termDurationMin) {
     throw new Error(
-      "Ukupno trajanje odabranih servisnih usluga ne smije biti dulje od trajanja termina."
+      "Ukupno trajanje odabranih servisnih usluga ne smije biti dulje od trajanja termina.",
     );
   }
-
-  
 }
 
 function validatePublicReservationInput(input: PublicReservationInput) {
@@ -327,7 +378,7 @@ function validatePublicReservationInput(input: PublicReservationInput) {
 }
 
 export async function createPublicReservationUseCase(
-  input: PublicReservationInput
+  input: PublicReservationInput,
 ) {
   validatePublicReservationInput(input);
 
@@ -339,6 +390,12 @@ export async function createPublicReservationUseCase(
 
   if (term.status !== TerminStatus.SLOBODAN) {
     throw new Error("Odabrani termin nije slobodan.");
+  }
+
+  const termAlreadyReserved = await hasActiveReservationForTerm(input.terminId);
+
+  if (termAlreadyReserved) {
+    throw new Error("Odabrani termin već ima aktivnu rezervaciju.");
   }
 
   const services = [];
@@ -363,4 +420,104 @@ export async function createPublicReservationUseCase(
   validateTotalServiceDuration(term.pocetak, term.kraj, services);
 
   return createPublicReservation(input);
+}
+
+export async function createReservationForLoggedClientUseCase(
+  input: LoggedClientReservationInput,
+) {
+  validateLoggedClientReservationInput(input);
+
+  const term = await findTermById(input.terminId);
+
+  if (!term) {
+    throw new Error("Odabrani termin ne postoji.");
+  }
+
+  if (term.status !== TerminStatus.SLOBODAN) {
+    throw new Error("Odabrani termin nije slobodan.");
+  }
+
+  const termAlreadyReserved = await hasActiveReservationForTerm(input.terminId);
+
+  if (termAlreadyReserved) {
+    throw new Error("Odabrani termin već ima aktivnu rezervaciju.");
+  }
+
+  const services = [];
+
+  for (const item of input.usluge) {
+    const service = await findServiceById(item.uslugaId);
+
+    if (!service) {
+      throw new Error("Odabrana servisna usluga ne postoji.");
+    }
+
+    if (!service.aktivna) {
+      throw new Error(`Servisna usluga "${service.naziv}" nije aktivna.`);
+    }
+
+    if (item.kolicina < 1 || item.kolicina > 10) {
+      throw new Error("Količina servisne usluge mora biti između 1 i 10.");
+    }
+
+    services.push({
+      durationMin: service.trajanjeMin,
+      quantity: item.kolicina,
+    });
+  }
+
+  validateTotalServiceDuration(term.pocetak, term.kraj, services);
+
+  return createReservationForLoggedClient(input);
+}
+
+function validateLoggedClientReservationInput(
+  input: LoggedClientReservationInput,
+) {
+  if (!input.korisnikId) {
+    throw new Error("Korisnik nije prijavljen.");
+  }
+
+  if (input.voziloId) {
+    if (input.voziloId <= 0) {
+      throw new Error("Odabrano vozilo nije ispravno.");
+    }
+  } else {
+    if (
+      !input.registracijskaOznaka ||
+      input.registracijskaOznaka.trim().length < 5
+    ) {
+      throw new Error("Registracijska oznaka nije ispravna.");
+    }
+
+    if (!input.brojSasije || input.brojSasije.trim().length < 10) {
+      throw new Error("Broj šasije mora imati barem 10 znakova.");
+    }
+
+    if (!input.marka || input.marka.trim().length < 2) {
+      throw new Error("Marka vozila mora imati barem 2 znaka.");
+    }
+
+    if (!input.model || input.model.trim().length < 1) {
+      throw new Error("Model vozila mora biti unesen.");
+    }
+
+    const currentYear = new Date().getFullYear();
+
+    if (
+      !input.godinaProizvodnje ||
+      input.godinaProizvodnje < 1980 ||
+      input.godinaProizvodnje > currentYear + 1
+    ) {
+      throw new Error("Godina proizvodnje vozila nije u ispravnom rasponu.");
+    }
+  }
+
+  if (!input.terminId) {
+    throw new Error("Termin mora biti odabran.");
+  }
+
+  if (!input.usluge || input.usluge.length === 0) {
+    throw new Error("Potrebno je odabrati barem jednu servisnu uslugu.");
+  }
 }
