@@ -1,13 +1,13 @@
 Ovo je Sustav za rezervaciju servisa automobila.
-Za lokalno pokretanje potrebno je imati pokrenut PostgreSQL i ispravno konfiguriran .env file.\n
-Pokretanje projekta:\n
-npm install\n
-npx prisma generate\n
-npx prisma migrate dev\n
-npx prisma db seed\n
-npm run dev\n
-Pokretanje testova:\n
-npm test\n
+Za lokalno pokretanje potrebno je imati pokrenut PostgreSQL i ispravno konfiguriran .env file.
+Pokretanje projekta:
+npm install
+npx prisma generate
+npx prisma migrate dev
+npx prisma db seed
+npm run dev
+Pokretanje testova:
+npm test
 
 Za pristup deployanoj aplikaciji koristite sljedeći link:
 
