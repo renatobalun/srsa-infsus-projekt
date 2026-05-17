@@ -1,3 +1,10 @@
+Ovo je aplikacija za rezervaciju servisa automobila.
+Ako želite lokalno pokrenuti:
+npm install
+npx prisma generate
+npm run dev ili npm test (za testove)
+
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
