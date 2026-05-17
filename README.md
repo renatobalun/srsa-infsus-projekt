@@ -1,14 +1,15 @@
 Ovo je Sustav za rezervaciju servisa automobila.
 Za lokalno pokretanje potrebno je imati pokrenut PostgreSQL i ispravno konfiguriran .env file.
 Pokretanje projekta:
+```bash
 npm install
 npx prisma generate
 npx prisma migrate dev
 npx prisma db seed
 npm run dev
-Pokretanje testova:
+# Pokretanje testova:
 npm test
-
+```
 Za pristup deployanoj aplikaciji koristite sljedeći link:
 
 https://srsa-infsus-projekt.onrender.com
